@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createPattern, isColorSelected, nearestPaletteColor } from './bead-utils'
+import { chooseNextRegion, createPattern, getConnectedRegions, isColorSelected, nearestPaletteColor } from './bead-utils'
 
 describe('拼豆图纸生成', () => {
   it('将每个像素映射为有效色卡颜色并统计数量', () => {
@@ -18,5 +18,16 @@ describe('拼豆图纸生成', () => {
   it('拒绝不合理尺寸与错误像素数量', () => {
     expect(() => createPattern([], 0, 1)).toThrow()
     expect(() => createPattern([], 2, 2)).toThrow()
+  })
+  it('按同色连通区域计算施工顺序，并跳过已完成区域', () => {
+    const pattern = createPattern([
+      { r: 30, g: 33, b: 32 }, { r: 30, g: 33, b: 32 }, { r: 250, g: 249, b: 245 },
+      { r: 30, g: 33, b: 32 }, { r: 250, g: 249, b: 245 }, { r: 30, g: 33, b: 32 },
+    ], 2, 3)
+    const regions = getConnectedRegions(pattern, 'B01')
+    expect(regions.map((region) => region.length).sort()).toEqual([1, 3])
+    const done = new Set(regions[0].map(({ row, col }) => `${row},${col}`))
+    const next = chooseNextRegion(regions, done, 2, 3, 'largest')
+    expect(next).toHaveLength(1)
   })
 })
