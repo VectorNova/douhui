@@ -41,6 +41,36 @@ export function isColorSelected(cell: BeadCell, selectedColor: string | null) {
   return selectedColor === null || cell.id === selectedColor
 }
 
+export type Region = Array<{ row: number; col: number }>
+
+export function getConnectedRegions(pattern: Pattern, colorId: string): Region[] {
+  const visited = new Set<string>(); const regions: Region[] = []
+  const key = (row: number, col: number) => `${row},${col}`
+  pattern.cells.forEach((cell) => {
+    if (cell.id !== colorId || visited.has(key(cell.row, cell.col))) return
+    const region: Region = []; const queue = [{ row: cell.row, col: cell.col }]; visited.add(key(cell.row, cell.col))
+    while (queue.length) {
+      const point = queue.shift()!; region.push(point)
+      for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const row = point.row + dr; const col = point.col + dc; const nextKey = key(row, col)
+        if (row >= 0 && row < pattern.rows && col >= 0 && col < pattern.cols && !visited.has(nextKey) && pattern.cells[row * pattern.cols + col].id === colorId) { visited.add(nextKey); queue.push({ row, col }) }
+      }
+    }
+    regions.push(region)
+  })
+  return regions
+}
+
+export function chooseNextRegion(regions: Region[], completed: Set<string>, rows: number, cols: number, strategy: 'nearest' | 'largest' | 'edge'): Region | null {
+  const pending = regions.filter((region) => !region.every(({ row, col }) => completed.has(`${row},${col}`)))
+  if (!pending.length) return null
+  if (strategy === 'largest') return pending.slice().sort((a, b) => b.length - a.length)[0]
+  if (strategy === 'edge') return pending.find((region) => region.some(({ row, col }) => row === 0 || col === 0 || row === rows - 1 || col === cols - 1)) ?? pending[0]
+  const done = [...completed].map((value) => value.split(',').map(Number)).filter(([row, col]) => Number.isFinite(row) && Number.isFinite(col))
+  const ref = done.length ? done[done.length - 1] : [Math.floor(rows / 2), Math.floor(cols / 2)]
+  return pending.slice().sort((a, b) => Math.min(...a.map((p) => Math.abs(p.row - ref[0]) + Math.abs(p.col - ref[1]))) - Math.min(...b.map((p) => Math.abs(p.row - ref[0]) + Math.abs(p.col - ref[1]))))[0]
+}
+
 export function renderImageToPattern(image: HTMLImageElement, rows: number, cols: number, options: PatternOptions = {}): Pattern {
   const canvas = document.createElement('canvas')
   canvas.width = cols; canvas.height = rows
